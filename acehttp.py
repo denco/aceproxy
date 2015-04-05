@@ -598,9 +598,8 @@ def isRunning(process):
 def findProcess(name):
     for proc in psutil.process_iter():
         try:
-            pinfo = proc.as_dict(attrs=['pid', 'name'])
-            if pinfo['name'] == name:
-                return pinfo['pid']
+            if proc.name == name:
+                return proc.pid
         except psutil.AccessDenied:
             # System process
             pass
