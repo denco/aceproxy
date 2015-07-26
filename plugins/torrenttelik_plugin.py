@@ -48,6 +48,10 @@ class Torrenttelik(AceProxyPlugin):
         list_type = self.getparam('type')
         if not list_type or list_type.startswith('ttv'):
             url = config.url_ttv
+        elif list_type.startswith('m3u_ttv'):
+            url = config.url_m3u_ttv
+        elif list_type.startswith('aceproxy_ttv'):
+            url = config.url_aceproxy_ttv
         elif list_type.startswith('mob_ttv'):
             url = config.url_mob_ttv
         elif list_type.startswith('allfon'):
@@ -58,32 +62,42 @@ class Torrenttelik(AceProxyPlugin):
             return
 
         # Un-JSON channel list
-        try:
-            jsonplaylist = json.loads(Torrenttelik.playlist)
-        except Exception as e:
-            Torrenttelik.logger.error("Can't load JSON! " + repr(e))
-            return
+        if list_type.startswith('ttv'):
+            try:
+                jsonplaylist = json.loads(Torrenttelik.playlist)
+            except Exception as e:
+                Torrenttelik.logger.error("Can't load JSON! " + repr(e))
+                return
+            try:
+                channels = jsonplaylist['channels']
+            except Exception as e:
+                Torrenttelik.logger.error("Can't parse JSON! " + repr(e))
+                return
 
-        try:
-            channels = jsonplaylist['channels']
-        except Exception as e:
-            Torrenttelik.logger.error("Can't parse JSON! " + repr(e))
-            return
+            add_ts = False
+            try:
+                if connection.splittedpath[2].lower() == 'ts':
+                    add_ts = True
+            except:
+                pass
+            playlistgen = PlaylistGenerator()
+            for channel in channels:
+                playlistgen.addItem(channel)
+            exported = playlistgen.exportm3u(hostport, add_ts=add_ts)
+            exported = exported.encode('utf-8')
 
-        add_ts = False
-        try:
-            if connection.splittedpath[2].lower() == 'ts':
-                add_ts = True
-        except:
-            pass
+        elif list_type.startswith('m3u_ttv') or list_type.startswith('aceproxy_ttv'):
+            exported = ""
+            try:
+                for textline in Torrenttelik.playlist.splitlines():
+                    if textline.startswith('acestream://'):
+                        textline = textline.replace('acestream://','http://'+hostport+'/pid/').strip()
+                        textline += '/stream.mp4'
+                    exported += textline + '\r\n'
+            except Exception as e:
+                Torrenttelik.logger.error("Can't convert File! " + repr(e))
+                return
 
-        playlistgen = PlaylistGenerator()
-
-        for channel in channels:
-            playlistgen.addItem(channel)
-
-        exported = playlistgen.exportm3u(hostport, add_ts=add_ts)
-        exported = exported.encode('utf-8')
         connection.wfile.write(exported)
 
     def getparam(self, key):
